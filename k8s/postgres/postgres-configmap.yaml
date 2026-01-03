@@ -1,0 +1,33 @@
+# PostgreSQL Initialization Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: mlops-workshop
+data:
+  init-databases.sql: |
+    -- Create MLflow database and user
+    CREATE DATABASE mlflow;
+    CREATE USER mlflow WITH ENCRYPTED PASSWORD 'mlflow123';
+    GRANT ALL PRIVILEGES ON DATABASE mlflow TO mlflow;
+    
+    -- Create Airflow database and user
+    CREATE DATABASE airflow;
+    CREATE USER airflow WITH ENCRYPTED PASSWORD 'airflow123';
+    GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+    
+    -- Connect to mlflow database and grant schema permissions
+    \c mlflow
+    GRANT ALL ON SCHEMA public TO mlflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO mlflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO mlflow;
+    
+    -- Connect to airflow database and grant schema permissions
+    \c airflow
+    GRANT ALL ON SCHEMA public TO airflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO airflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO airflow;
+

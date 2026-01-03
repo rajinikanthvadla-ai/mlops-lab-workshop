@@ -1,0 +1,46 @@
+# MinIO Services
+---
+# MinIO API Service (Internal ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: api
+    - port: 9001
+      targetPort: 9001
+      name: console
+  selector:
+    app: minio
+---
+# MinIO NodePort Service (External Access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-external
+  namespace: minio
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 30900
+      name: api
+    - port: 9001
+      targetPort: 9001
+      nodePort: 30901
+      name: console
+  selector:
+    app: minio
+

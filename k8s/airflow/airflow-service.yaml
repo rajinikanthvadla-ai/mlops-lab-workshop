@@ -1,0 +1,39 @@
+# Airflow Services
+---
+# Airflow Webserver ClusterIP Service (Internal)
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: airflow-webserver
+---
+# Airflow Webserver NodePort Service (External Access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-external
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      name: http
+  selector:
+    app: airflow-webserver
+

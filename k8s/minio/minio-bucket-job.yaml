@@ -1,0 +1,66 @@
+# Job to create initial buckets in MinIO
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-create-buckets
+  namespace: minio
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: minio-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2024-01-16T16-06-34Z
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-password
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secret-key
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for MinIO to be ready..."
+              sleep 15
+              
+              echo "Configuring MinIO client..."
+              mc alias set myminio http://minio.minio.svc.cluster.local:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+              
+              echo "Creating buckets..."
+              mc mb myminio/mlflow-artifacts --ignore-existing
+              mc mb myminio/airflow-logs --ignore-existing
+              mc mb myminio/data-lake --ignore-existing
+              
+              echo "Setting bucket policies..."
+              mc anonymous set download myminio/mlflow-artifacts
+              
+              echo "Creating access key for applications..."
+              mc admin user add myminio $MINIO_ACCESS_KEY $MINIO_SECRET_KEY || true
+              mc admin policy attach myminio readwrite --user $MINIO_ACCESS_KEY || true
+              
+              echo "Bucket setup complete!"
+              mc ls myminio
+

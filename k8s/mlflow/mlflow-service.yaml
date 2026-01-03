@@ -1,0 +1,39 @@
+# MLflow Services
+---
+# MLflow ClusterIP Service (Internal)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: mlflow
+  labels:
+    app.kubernetes.io/name: mlflow
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: http
+  selector:
+    app: mlflow
+---
+# MLflow NodePort Service (External Access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-external
+  namespace: mlflow
+  labels:
+    app.kubernetes.io/name: mlflow
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  type: NodePort
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30500
+      name: http
+  selector:
+    app: mlflow
+

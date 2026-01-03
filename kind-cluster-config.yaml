@@ -1,0 +1,36 @@
+# Kind Cluster Configuration - 3 Node Cluster
+# 1 Control Plane + 2 Worker Nodes for MLOps Workshop
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: mlops-workshop
+nodes:
+  # Control Plane Node
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Airflow WebServer
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      # MLflow UI
+      - containerPort: 30500
+        hostPort: 5000
+        protocol: TCP
+      # MinIO Console
+      - containerPort: 30900
+        hostPort: 9000
+        protocol: TCP
+      # MinIO API
+      - containerPort: 30901
+        hostPort: 9001
+        protocol: TCP
+  # Worker Node 1
+  - role: worker
+  # Worker Node 2
+  - role: worker
+

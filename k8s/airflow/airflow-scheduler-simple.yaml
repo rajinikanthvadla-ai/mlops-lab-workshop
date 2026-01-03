@@ -1,0 +1,89 @@
+# Airflow Scheduler Deployment (Simple - without Git-sync)
+# Use this for initial testing, then switch to airflow-scheduler.yaml for Git-sync
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow-scheduler
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+        app.kubernetes.io/name: airflow-scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: apache/airflow:2.8.0-python3.11
+          command:
+            - airflow
+            - scheduler
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: connection-string
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: fernet-key
+            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: webserver-secret-key
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "False"
+            - name: AIRFLOW__CORE__DAGS_FOLDER
+              value: "/opt/airflow/dags"
+            # MLflow integration
+            - name: MLFLOW_TRACKING_URI
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: mlflow-tracking-uri
+            # MinIO integration
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-endpoint
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-secret-key
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+            - name: logs
+              mountPath: /opt/airflow/logs
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: dags
+          configMap:
+            name: airflow-dags
+        - name: logs
+          persistentVolumeClaim:
+            claimName: airflow-logs-pvc
+

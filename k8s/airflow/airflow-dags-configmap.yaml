@@ -1,0 +1,134 @@
+# Airflow DAGs ConfigMap
+# This ConfigMap contains example DAGs that are directly mounted
+# For production, use Git-sync to fetch DAGs from GitHub
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-dags
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+data:
+  example_hello_world.py: |
+    """
+    Example Hello World DAG for MLOps Workshop
+    This is a simple DAG to verify Airflow is working correctly
+    """
+    from datetime import datetime, timedelta
+    from airflow import DAG
+    from airflow.operators.bash import BashOperator
+    from airflow.operators.python import PythonOperator
+
+    default_args = {
+        'owner': 'mlops-workshop',
+        'depends_on_past': False,
+        'email_on_failure': False,
+        'email_on_retry': False,
+        'retries': 1,
+        'retry_delay': timedelta(minutes=5),
+    }
+
+    def print_hello():
+        print("Hello from MLOps Workshop!")
+        print("Airflow is running successfully!")
+        return "Hello World"
+
+    with DAG(
+        'hello_world',
+        default_args=default_args,
+        description='A simple hello world DAG',
+        schedule_interval=timedelta(days=1),
+        start_date=datetime(2024, 1, 1),
+        catchup=False,
+        tags=['example', 'workshop'],
+    ) as dag:
+
+        task1 = BashOperator(
+            task_id='print_date',
+            bash_command='date',
+        )
+
+        task2 = PythonOperator(
+            task_id='hello_python',
+            python_callable=print_hello,
+        )
+
+        task3 = BashOperator(
+            task_id='complete',
+            bash_command='echo "DAG completed successfully!"',
+        )
+
+        task1 >> task2 >> task3
+
+  example_mlflow_integration.py: |
+    """
+    Example MLflow Integration DAG for MLOps Workshop
+    Demonstrates how Airflow can interact with MLflow
+    """
+    from datetime import datetime, timedelta
+    from airflow import DAG
+    from airflow.operators.python import PythonOperator
+    from airflow.operators.bash import BashOperator
+    import os
+
+    default_args = {
+        'owner': 'mlops-workshop',
+        'depends_on_past': False,
+        'email_on_failure': False,
+        'email_on_retry': False,
+        'retries': 1,
+        'retry_delay': timedelta(minutes=5),
+    }
+
+    def log_to_mlflow(**context):
+        """Log metrics to MLflow"""
+        try:
+            import mlflow
+            import random
+            
+            mlflow_uri = os.getenv('MLFLOW_TRACKING_URI', 'http://mlflow.mlflow.svc.cluster.local:5000')
+            mlflow.set_tracking_uri(mlflow_uri)
+            mlflow.set_experiment("airflow-workshop")
+            
+            with mlflow.start_run(run_name=f"airflow-{context['ds']}"):
+                mlflow.log_param("source", "airflow")
+                mlflow.log_param("dag_id", context['dag'].dag_id)
+                mlflow.log_metric("random_metric", random.random())
+                mlflow.set_tag("execution_date", str(context['ds']))
+                
+            print("Successfully logged to MLflow!")
+            return True
+        except Exception as e:
+            print(f"MLflow logging failed: {e}")
+            print("This is expected if mlflow package is not installed in the Airflow image")
+            return False
+
+    with DAG(
+        'mlflow_integration_example',
+        default_args=default_args,
+        description='Example DAG showing MLflow integration',
+        schedule_interval=timedelta(days=1),
+        start_date=datetime(2024, 1, 1),
+        catchup=False,
+        tags=['mlflow', 'workshop', 'example'],
+    ) as dag:
+
+        check_env = BashOperator(
+            task_id='check_environment',
+            bash_command='echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"',
+        )
+
+        log_metrics = PythonOperator(
+            task_id='log_to_mlflow',
+            python_callable=log_to_mlflow,
+            provide_context=True,
+        )
+
+        complete = BashOperator(
+            task_id='complete',
+            bash_command='echo "MLflow integration DAG completed!"',
+        )
+
+        check_env >> log_metrics >> complete
+

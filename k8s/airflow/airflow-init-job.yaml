@@ -1,0 +1,66 @@
+# Airflow Database Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-init-db
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: airflow-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: airflow-init
+          image: apache/airflow:2.8.0-python3.11
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for PostgreSQL..."
+              sleep 20
+              
+              echo "Initializing Airflow database..."
+              airflow db migrate
+              
+              echo "Creating admin user..."
+              airflow users create \
+                --username admin \
+                --password admin123 \
+                --firstname Admin \
+                --lastname User \
+                --role Admin \
+                --email admin@mlops-workshop.local || true
+              
+              echo "Airflow initialization complete!"
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: connection-string
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: fernet-key
+            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: webserver-secret-key
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "False"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+

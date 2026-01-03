@@ -1,0 +1,38 @@
+# Git-Sync Configuration for Airflow DAGs
+# This ConfigMap contains the GitHub repository configuration
+# 
+# IMPORTANT: Update GIT_SYNC_REPO to your GitHub repository URL
+# 
+# For the workshop, we'll use a sample public repo by default.
+# You should create your own repo and update this configuration.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: git-sync-config
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+data:
+  # IMPORTANT: Update this to your GitHub repository URL containing DAGs
+  # The repository should have a 'dags' folder with your DAG files
+  # 
+  # Example structure:
+  #   your-repo/
+  #   └── dags/
+  #       ├── example_dag.py
+  #       └── ml_pipeline.py
+  #
+  # For public repos, use HTTPS URL like:
+  #   https://github.com/your-org/mlops-dags.git
+  #
+  # For private repos, you'll need SSH with a secret key
+  #
+  GIT_SYNC_REPO: "https://github.com/apache/airflow.git"
+  GIT_SYNC_BRANCH: "main"
+  GIT_SYNC_DEPTH: "1"
+  GIT_SYNC_ROOT: "/git"
+  GIT_SYNC_DEST: "repo"
+  GIT_SYNC_WAIT: "60"
+  GIT_SYNC_MAX_FAILURES: "5"

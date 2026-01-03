@@ -1,0 +1,37 @@
+# Airflow Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: mlops-workshop
+data:
+  # Airflow configuration file
+  airflow.cfg: |
+    [core]
+    dags_folder = /opt/airflow/dags
+    load_examples = False
+    executor = LocalExecutor
+    parallelism = 4
+    dag_concurrency = 2
+    max_active_runs_per_dag = 2
+    
+    [database]
+    sql_alchemy_conn = postgresql+psycopg2://airflow:airflow123@postgres.postgres.svc.cluster.local:5432/airflow
+    
+    [webserver]
+    web_server_port = 8080
+    web_server_host = 0.0.0.0
+    expose_config = True
+    rbac = True
+    
+    [scheduler]
+    dag_dir_list_interval = 30
+    min_file_process_interval = 30
+    
+    [logging]
+    base_log_folder = /opt/airflow/logs
+    remote_logging = False
+

@@ -1,0 +1,151 @@
+# Airflow Webserver Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow-webserver
+    app.kubernetes.io/part-of: mlops-workshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-webserver
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+        app.kubernetes.io/name: airflow-webserver
+    spec:
+      initContainers:
+        # Git-sync init container to clone DAGs before starting
+        - name: git-sync-init
+          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          args:
+            - --repo=$(GIT_SYNC_REPO)
+            - --ref=$(GIT_SYNC_BRANCH)
+            - --depth=$(GIT_SYNC_DEPTH)
+            - --root=$(GIT_SYNC_ROOT)
+            - --link=$(GIT_SYNC_DEST)
+            - --one-time
+          envFrom:
+            - configMapRef:
+                name: git-sync-config
+          volumeMounts:
+            - name: dags
+              mountPath: /git
+          securityContext:
+            runAsUser: 65533
+            runAsGroup: 65533
+      containers:
+        - name: webserver
+          image: apache/airflow:2.8.0-python3.11
+          command:
+            - airflow
+            - webserver
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: connection-string
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: fernet-key
+            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: webserver-secret-key
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "False"
+            - name: AIRFLOW__CORE__DAGS_FOLDER
+              value: "/git/repo/airflow/example_dags"
+            - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
+              value: "True"
+            # MLflow integration
+            - name: MLFLOW_TRACKING_URI
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: mlflow-tracking-uri
+            # MinIO integration
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-endpoint
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow-secrets
+                  key: minio-secret-key
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: dags
+              mountPath: /git
+              readOnly: true
+            - name: logs
+              mountPath: /opt/airflow/logs
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+        # Git-sync sidecar to continuously sync DAGs
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          args:
+            - --repo=$(GIT_SYNC_REPO)
+            - --ref=$(GIT_SYNC_BRANCH)
+            - --depth=$(GIT_SYNC_DEPTH)
+            - --root=$(GIT_SYNC_ROOT)
+            - --link=$(GIT_SYNC_DEST)
+            - --period=$(GIT_SYNC_WAIT)s
+            - --max-failures=$(GIT_SYNC_MAX_FAILURES)
+          envFrom:
+            - configMapRef:
+                name: git-sync-config
+          volumeMounts:
+            - name: dags
+              mountPath: /git
+          securityContext:
+            runAsUser: 65533
+            runAsGroup: 65533
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: dags
+          emptyDir: {}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: airflow-logs-pvc
