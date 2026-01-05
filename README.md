@@ -390,4 +390,4 @@ MIT License - Use freely for educational purposes.
 
 **Happy Learning! 🎓**
 
-*Built for MLOps/AIOps Workshop - Teaching production ML to experienced professionals*
+*Built for MLOps/AIOps Workshop - production ML to experienced professionals*
